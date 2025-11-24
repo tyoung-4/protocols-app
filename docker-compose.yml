@@ -1,0 +1,59 @@
+services:
+  api:
+    build:
+      context: ./services/api
+    environment:
+      - API_PORT=${API_PORT}
+      - NODE_ENV=${NODE_ENV}
+      - POSTGRES_HOST=${POSTGRES_HOST}
+      - POSTGRES_PORT=${POSTGRES_PORT}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
+      - ELASTICSEARCH_NODE=${ELASTICSEARCH_NODE}
+      - ELASTICSEARCH_INDEX=${ELASTICSEARCH_INDEX}
+    depends_on:
+      - db
+      - search
+    ports:
+      - "${API_PORT}:3001"
+
+  web:
+    build:
+      context: ./services/web
+    environment:
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
+      - NEXT_PUBLIC_COLLAB_URL=${NEXT_PUBLIC_COLLAB_URL}
+    depends_on:
+      - api
+      - collab
+    ports:
+      - "${WEB_PORT}:3000"
+
+  db:
+    image: postgres:15
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
+    volumes:
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    ports:
+      - "5432:5432"
+
+  search:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.13.4
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+    ports:
+      - "9200:9200"
+
+  collab:
+    build:
+      context: ./services/collab
+    environment:
+      - COLLAB_PORT=${COLLAB_PORT}
+    ports:
+      - "${COLLAB_PORT}:1234"
