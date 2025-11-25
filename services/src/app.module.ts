@@ -12,12 +12,12 @@ import { ProtocolsService } from './protocols/protocols.service';
   imports: [
     TypeOrmModule.forRoot({
       type: 'postgres',
-      host: process.env.POSTGRES_HOST || 'localhost',
+      host: process.env.POSTGRES_HOST || 'db',
       port: parseInt(process.env.POSTGRES_PORT || '5432', 10),
       username: process.env.POSTGRES_USER || 'eln',
       password: process.env.POSTGRES_PASSWORD || 'elnpass',
       database: process.env.POSTGRES_DB || 'eln',
-      synchronize: true,
+      synchronize: true, // For dev only! Disable in production
       entities: [Protocol, ProtocolVersion, Step, Experiment],
     }),
     TypeOrmModule.forFeature([Protocol, ProtocolVersion, Step, Experiment]),

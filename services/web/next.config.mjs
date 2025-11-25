@@ -1,8 +1,8 @@
 
+// services/web/next.config.mjs
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  output: 'standalone',
-  experimental: { appDir: true }
+  reactStrictMode: true,
 };
 export default nextConfig;
 

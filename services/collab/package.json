@@ -1,14 +1,9 @@
 
 {
-  "name": "eln-collab",
-  "version": "0.1.0",
-  "private": true,
-  "scripts": {
-    "start": "node index.js"
-  },
+  "name": "collab-server",
+  "version": "1.0.0",
   "dependencies": {
-    "y-websocket": "^1.4.10",
-    "ws": "^8.13.0"
+    "y-websocket": "^1.5.0"
   }
 }
 

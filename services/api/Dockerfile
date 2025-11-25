@@ -1,22 +1,17 @@
 
-FROM node:20-alpine AS deps
+# Stage 1: Build
+FROM node:20-alpine AS builder
 WORKDIR /app
-COPY package.json .
-RUN npm install --production=false
-
-FROM node:20-alpine AS build
-WORKDIR /app
-COPY --from=deps /app/node_modules ./node_modules
-COPY package.json .
-COPY tsconfig.json .
-COPY src ./src
+COPY package*.json ./
+RUN npm install --frozen-lockfile
+COPY . .
 RUN npm run build
 
+# Stage 2: Run
 FROM node:20-alpine
 WORKDIR /app
+COPY --from=builder /app ./
 ENV NODE_ENV=production
-COPY --from=build /app/dist ./dist
-COPY package.json .
-RUN npm install --production=true && npm cache clean --force
-EXPOSE 3001
+EXPOSE ${API_PORT}
+CMD ["npm", "run", "start:prod"]
 

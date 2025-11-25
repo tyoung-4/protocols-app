@@ -1,59 +1,68 @@
+
 services:
-  api:
-    build:
-      context: ./services/api
-    environment:
-      - API_PORT=${API_PORT}
-      - NODE_ENV=${NODE_ENV}
-      - POSTGRES_HOST=${POSTGRES_HOST}
-      - POSTGRES_PORT=${POSTGRES_PORT}
-      - POSTGRES_USER=${POSTGRES_USER}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-      - POSTGRES_DB=${POSTGRES_DB}
-      - ELASTICSEARCH_NODE=${ELASTICSEARCH_NODE}
-      - ELASTICSEARCH_INDEX=${ELASTICSEARCH_INDEX}
-    depends_on:
-      - db
-      - search
-    ports:
-      - "${API_PORT}:3001"
-
-  web:
-    build:
-      context: ./services/web
-    environment:
-      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
-      - NEXT_PUBLIC_COLLAB_URL=${NEXT_PUBLIC_COLLAB_URL}
-    depends_on:
-      - api
-      - collab
-    ports:
-      - "${WEB_PORT}:3000"
-
   db:
     image: postgres:15
+    container_name: protocols-eln-db
+    restart: always
     environment:
-      - POSTGRES_USER=${POSTGRES_USER}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-      - POSTGRES_DB=${POSTGRES_DB}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASS}
+      POSTGRES_DB: ${DB_NAME}
     volumes:
-      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
-    ports:
-      - "5432:5432"
+      - db_data:/var/lib/postgresql/data
+    # Internal only (no ports published)
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME} -h localhost || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
 
-  search:
-    image: docker.elastic.co/elasticsearch/elasticsearch:8.13.4
+  api:
+    build: ./services/api
+    container_name: protocols-eln-api
+    restart: always
+    depends_on:
+      db:
+        condition: service_healthy
     environment:
-      - discovery.type=single-node
-      - xpack.security.enabled=false
-      - ES_JAVA_OPTS=-Xms512m -Xmx512m
-    ports:
-      - "9200:9200"
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_USER: ${DB_USER}
+      DB_PASS: ${DB_PASS}
+      DB_NAME: ${DB_NAME}
+      NODE_ENV: production
+      API_PORT: ${API_PORT}
+    # Internal only; UI calls http://api:3001 via Docker network
+    command: ["npm", "run", "start:prod"]
 
-  collab:
-    build:
-      context: ./services/collab
+  yjs:
+    build: ./services/collab
+    container_name: protocols-eln-collab
+    restart: always
+    # Internal only; UI uses ws://yjs:1234 via Docker network
+    # (no ports section -> not exposed outside Docker)
     environment:
-      - COLLAB_PORT=${COLLAB_PORT}
+      HOST: 0.0.0.0
+      PORT: 1234
+
+  web:
+    build: ./services/web
+    container_name: protocols-eln-web
+    restart: always
+    depends_on:
+      - api
+      - yjs
+    environment:
+      PORT: ${WEB_PORT}
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}        # e.g., http://api:3001
+      NEXT_PUBLIC_COLLAB_URL: ${NEXT_PUBLIC_COLLAB_URL}  # e.g., ws://yjs:1234
+      NODE_ENV: production
+    # Expose only the UI to your lab network. Colleagues connect via:
+    # http://<your-host-ip>:8080 (or whatever WEB_PORT is)
     ports:
-      - "${COLLAB_PORT}:1234"
+      - "0.0.0.0:${WEB_PORT}:${WEB_PORT}"
+    command: ["sh", "-c", "next start -p ${WEB_PORT}"]
+
+volumes:
+  db_data:
+
